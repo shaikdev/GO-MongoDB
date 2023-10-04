@@ -14,7 +14,6 @@ import (
 func CreateMovie(movie models.Movie) (primitive.ObjectID, error) {
 	response, err := db.Collection.InsertOne(context.Background(), movie)
 	if err != nil {
-		log.Fatal(err)
 		return primitive.ObjectID{}, err
 	}
 	insertedID := response.InsertedID.(primitive.ObjectID)
@@ -25,21 +24,17 @@ func CreateMovie(movie models.Movie) (primitive.ObjectID, error) {
 func DeleteMovieById(movieId string) int64 {
 	id, _ := primitive.ObjectIDFromHex(movieId)
 	filter := bson.M{"_id": id}
-	response, err := db.Collection.DeleteOne(context.Background(), filter)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("The movie was deleted", response.DeletedCount)
+	response, _ := db.Collection.DeleteOne(context.Background(), filter)
 	return response.DeletedCount
 }
 
-func DeleteAllMovies() bool {
+func DeleteAllMovies() int64 {
 	response, err := db.Collection.DeleteMany(context.Background(), bson.D{{}}, nil)
 	if err != nil {
-		log.Fatal(err)
+		return 0
 	}
 	fmt.Println("The all movie was deleted", response.DeletedCount)
-	return true
+	return response.DeletedCount
 }
 
 func GetAllMovies() ([]primitive.M, int) {
@@ -66,27 +61,26 @@ func GetAllMovies() ([]primitive.M, int) {
 	return movies, len(movies)
 }
 
-func GetMovieById(id string) models.Movie {
+func GetMovieById(id string) (models.Movie, error) {
 	_id, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": _id}
 	movie := models.Movie{}
 	err := db.Collection.FindOne(context.Background(), filter).Decode(&movie)
 	if err != nil {
-		log.Fatal(err)
+		return models.Movie{}, err
 	}
-	return movie
+	return movie, nil
 }
 
-func UpdateMovie(id string, body map[string]interface{}) int64 {
+func UpdateMovie(id string, body models.Movie) int64 {
 	_id, _ := primitive.ObjectIDFromHex(id)
-	filter := bson.M{"id": _id}
+	filter := bson.M{"_id": _id}
 	update := bson.M{}
-	for fieldName, fieldValue := range body {
-		update[fieldName] = fieldValue
+	if len(body.Movie) != 0 {
+		update["movie"] = body.Movie
 	}
-	response, err := db.Collection.UpdateOne(context.Background(), filter, bson.M{"$set": bson.M(update)})
-	if err != nil {
-		log.Fatal(err)
-	}
+	update["watched"] = body.Watched
+	setUpdatedBody := bson.M{"$set": update}
+	response, _ := db.Collection.UpdateOne(context.Background(), filter, setUpdatedBody)
 	return response.ModifiedCount
 }
