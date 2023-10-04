@@ -30,7 +30,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("MongoDB connected successfully")
+	defer fmt.Println("MongoDB connected successfully")
 
 	Collection = client.Database(dbName).Collection(movie)
 

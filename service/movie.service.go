@@ -11,14 +11,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func CreateMovie(movie models.Movie) string {
+func CreateMovie(movie models.Movie) (primitive.ObjectID, error) {
 	response, err := db.Collection.InsertOne(context.Background(), movie)
 	if err != nil {
 		log.Fatal(err)
+		return primitive.ObjectID{}, err
 	}
-	insertedID := response.InsertedID.(string)
+	insertedID := response.InsertedID.(primitive.ObjectID)
 	fmt.Println("The movie was created", response.InsertedID)
-	return insertedID
+	return insertedID, nil
 }
 
 func DeleteMovieById(movieId string) int64 {
@@ -39,4 +40,53 @@ func DeleteAllMovies() bool {
 	}
 	fmt.Println("The all movie was deleted", response.DeletedCount)
 	return true
+}
+
+func GetAllMovies() ([]primitive.M, int) {
+	response, err := db.Collection.Find(context.Background(), bson.D{{}})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var movies []primitive.M
+
+	for response.Next(context.Background()) {
+		var movie bson.M
+
+		decodeErr := response.Decode(&movie)
+		if decodeErr != nil {
+			log.Fatal(decodeErr)
+		}
+
+		movies = append(movies, movie)
+
+	}
+
+	defer response.Close(context.Background())
+	return movies, len(movies)
+}
+
+func GetMovieById(id string) models.Movie {
+	_id, _ := primitive.ObjectIDFromHex(id)
+	filter := bson.M{"_id": _id}
+	movie := models.Movie{}
+	err := db.Collection.FindOne(context.Background(), filter).Decode(&movie)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return movie
+}
+
+func UpdateMovie(id string, body map[string]interface{}) int64 {
+	_id, _ := primitive.ObjectIDFromHex(id)
+	filter := bson.M{"id": _id}
+	update := bson.M{}
+	for fieldName, fieldValue := range body {
+		update[fieldName] = fieldValue
+	}
+	response, err := db.Collection.UpdateOne(context.Background(), filter, bson.M{"$set": bson.M(update)})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return response.ModifiedCount
 }
