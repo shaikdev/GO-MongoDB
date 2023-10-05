@@ -5,154 +5,93 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/shaikdev/GO-MongoDB/helper"
 	"github.com/shaikdev/GO-MongoDB/models"
 	"github.com/shaikdev/GO-MongoDB/responses"
 	"github.com/shaikdev/GO-MongoDB/service"
 )
 
 func CreateMovie(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	helper.Header(w, "POST")
 	defer r.Body.Close()
 	var movie models.Movie
 	json.NewDecoder(r.Body).Decode(&movie)
 	if movie.BodyCheckForMovie() {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":    responses.MOVIE_FIELD_IS_REQUIRED,
-			"status":     "Failed",
-			"statusCode": http.StatusBadRequest,
-		})
+		helper.ResponseErrorSender(w, responses.MOVIE_FIELD_IS_REQUIRED, "Failed", http.StatusBadRequest)
 		return
 	}
 	response, createErr := service.CreateMovie(movie)
 	if createErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":    responses.MOVIE_CREATED_FAILED,
-			"status":     "Failed",
-			"statusCode": http.StatusBadRequest,
-		})
+		helper.ResponseErrorSender(w, responses.MOVIE_CREATED_FAILED, "Failed", http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":    responses.MOVIE_CREATED_SUCCESSFULLY,
-		"status":     "Success",
-		"statusCode": http.StatusCreated,
-		"data":       response,
-	})
+	helper.ResponseSuccessSender(w, responses.MOVIE_CREATED_SUCCESSFULLY, "Success", http.StatusCreated, response)
 }
 
 func GetAllMovies(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-	w.Header().Set("Access-Control-Allow-Methods", "GET")
-	w.WriteHeader(http.StatusOK)
+	helper.Header(w, "GET")
 	defer r.Body.Close()
 	getMovies, count := service.GetAllMovies()
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":    responses.GET_ALL_MOVIES_SUCCESSFULLY,
-		"status":     "Success",
-		"statusCode": http.StatusOK,
-		"data":       getMovies,
-		"count":      count,
-	})
+	helper.ResponseSuccessSenderWithCount(w, responses.GET_ALL_MOVIES_SUCCESSFULLY, "Success", http.StatusOK, getMovies, count)
 }
 
 func GetMovieById(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-	w.Header().Set("Access-Control-Allow-Methods", "GET")
+	helper.Header(w, "GET")
 	defer r.Body.Close()
 	params := mux.Vars(r)
 	movieId := params["id"]
 	response, err := service.GetMovieById(movieId)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":    responses.MOVIE_GET_FAILED,
-			"status":     "Failed",
-			"statusCode": http.StatusNotFound,
-		})
+		helper.ResponseErrorSender(w, responses.MOVIE_GET_FAILED, "Failed", http.StatusNotFound)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":    responses.MOVIE_GET_SUCCESS_SUCCESSFULLY,
-		"status":     "Success",
-		"statusCode": http.StatusOK,
-		"data":       response,
-	})
+	helper.ResponseSuccessSender(w, responses.MOVIE_GET_SUCCESS_SUCCESSFULLY, "Success", http.StatusOK, response)
 }
 
 func UpdateMovieById(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-	w.Header().Set("Access-Control-Allow-Methods", "PUT")
+	helper.Header(w, "PUT")
 	defer r.Body.Close()
 	params := mux.Vars(r)
 	movieId := params["id"]
 	// decode
 	var movie models.Movie
 	json.NewDecoder(r.Body).Decode(&movie)
-	response := service.UpdateMovie(movieId, movie)
-	if response == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "Failed to edit movie",
-		})
+
+	err := service.UpdateMovie(movieId, movie)
+	if err != nil {
+		helper.ResponseErrorSender(w, responses.MOVIE_EDIT_FAILED, "Failed", http.StatusBadRequest)
 		return
 	}
-	_ = json.NewEncoder(w).Encode("Updated successfully")
+
+	updatedMovie, getMovieErr := service.GetMovieById(movieId)
+	if getMovieErr != nil {
+		helper.ResponseErrorSender(w, responses.MOVIE_GET_FAILED, "Failed", http.StatusNotFound)
+		return
+	}
+	helper.ResponseSuccessSender(w, responses.MOVIE_EDIT_SUCCESSFULLY, "Success", http.StatusOK, updatedMovie)
 
 }
 
 func DeleteMovieById(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-	w.Header().Set("Access-Control-Allow-Methods", "DELETE")
+	helper.Header(w, "DELETE")
 
 	params := mux.Vars(r)
 	movieId := params["id"]
 	response := service.DeleteMovieById(movieId)
 	if response == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":    responses.MOVIE_DELETED_FAILED,
-			"status":     "Failed",
-			"statusCode": http.StatusBadRequest,
-		})
+		helper.ResponseErrorSender(w, responses.MOVIE_DELETE_FAILED, "Failed", http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":    responses.MOVIE_DELETED_SUCCESSFULLY,
-		"status":     "Success",
-		"statusCode": http.StatusOK,
-	})
+	helper.ResponseSuccessSenderWithoutData(w, responses.MOVIE_DELETED_SUCCESSFULLY, "Success", http.StatusOK)
 }
 
 func DeleteAllMovies(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-	w.Header().Set("Access-Control-Allow-Methods", "DELETE")
-
+	helper.Header(w, "DELETE")
 	response := service.DeleteAllMovies()
 	if response == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":    responses.MOVIE_DELETE_FAILED,
-			"statusCode": http.StatusBadRequest,
-			"status":     "Failed",
-		})
+		helper.ResponseErrorSender(w, responses.MOVIE_DELETE_FAILED, "Failed", http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":    responses.MOVIE_DELETED_SUCCESSFULLY,
-		"statusCode": http.StatusOK,
-		"status":     "Success",
-	})
+	helper.ResponseSuccessSenderWithoutData(w, responses.MOVIE_DELETED_SUCCESSFULLY, "Success", http.StatusOK)
 }

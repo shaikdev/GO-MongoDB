@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 
 	"github.com/shaikdev/GO-MongoDB/db"
 	"github.com/shaikdev/GO-MongoDB/models"
@@ -72,15 +73,36 @@ func GetMovieById(id string) (models.Movie, error) {
 	return movie, nil
 }
 
-func UpdateMovie(id string, body models.Movie) int64 {
+func UpdateMovie(id string, body models.Movie) error {
 	_id, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": _id}
 	update := bson.M{}
-	if len(body.Movie) != 0 {
+	if len(body.Movie) > 0 {
 		update["movie"] = body.Movie
 	}
-	update["watched"] = body.Watched
+	if body.Watched || !body.Watched {
+		update["watched"] = body.Watched
+	}
+	fmt.Println("update", update)
 	setUpdatedBody := bson.M{"$set": update}
-	response, _ := db.Collection.UpdateOne(context.Background(), filter, setUpdatedBody)
-	return response.ModifiedCount
+	_, err := db.Collection.UpdateOne(context.Background(), filter, setUpdatedBody)
+	return err
+
+}
+
+func MakeKeyAndValuePair(movie models.Movie) map[string]interface{} {
+	fmt.Println("", movie)
+	fieldMap := make(map[string]interface{})
+
+	movieField := reflect.TypeOf(movie)
+	movieValue := reflect.ValueOf(movie)
+
+	for i := 0; i < movieField.NumField(); i++ {
+		fieldKey := movieField.Field(i).Name
+		fieldValue := movieValue.Field(i).Interface()
+		fieldMap[fieldKey] = fieldValue
+	}
+
+	return fieldMap
+
 }
